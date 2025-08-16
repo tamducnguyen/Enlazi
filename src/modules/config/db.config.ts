@@ -12,5 +12,5 @@ export const typeOrmConfig = (
   database: configService.get<string>('DB_NAME'),
   // logging: ['error', 'warn', 'query'],
   autoLoadEntities: true,
-  synchronize: true, //only for development
+  synchronize: process.env.NODE_ENV == 'development', //only for development
 });

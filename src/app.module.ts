@@ -6,7 +6,6 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './modules/config/db.config';
-import { MailController } from './modules/mail/mail.controller';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { throttlerConfig } from './modules/config/throttler.config';
@@ -30,7 +29,7 @@ import { throttlerConfig } from './modules/config/throttler.config';
       useFactory: typeOrmConfig,
     }),
   ],
-  controllers: [AppController, MailController],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
