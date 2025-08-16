@@ -1,0 +1,26 @@
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { sendResponse } from '../helper/response.helper';
+import { HttpStatusCodes, message } from '../constants.common';
+
+@Injectable()
+export class UserThrottlerGuard extends ThrottlerGuard {
+  protected getTracker(req: Record<string, any>): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (req.user?.sub) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+      return req.user.sub;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return req.ip;
+  }
+  protected throwThrottlingException(): Promise<void> {
+    throw new HttpException(
+      sendResponse(
+        HttpStatusCodes.TooManyRequests,
+        message.auth.ratelimit.too_many_requests,
+      ),
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
