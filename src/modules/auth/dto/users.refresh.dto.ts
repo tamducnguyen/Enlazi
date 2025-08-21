@@ -1,11 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
 
 export class RefreshDTO {
-  @IsOptional()
   @IsString()
   @IsNotEmpty()
   refreshToken: string;
-  @IsOptional()
   @IsUUID()
+  @IsNotEmpty()
   sessionId: string;
 }
