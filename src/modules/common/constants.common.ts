@@ -1,32 +1,35 @@
 export const message = {
   user: {
-    exist: 'Invalid information. Please check and try again.',
-    send_code_successfully:
-      'Verification code sent successfully. Please check your email to verify your account.',
-    verify_successfully: 'Your account has been verified successfully.',
-    not_exist: 'Invalid verification information. Please check and try again.',
+    exist: 'This email is already registered.',
+    send_code_successfully: 'Verification code sent. Please check your email.',
+    verify_successfully: 'Your account has been verified.',
+    not_exist: 'Verification information is invalid. Please try again.',
     already_verified: 'Your account is already verified.',
-    wrong_verified_code: 'The verification code is invalid.',
-    verify_require:
-      'Your account is not verified. Please verify your account to sign in',
-    wrong_password: 'Email or password is invalid. Please type again',
-    role_not_exist: 'Invalid information. Please check and try again.',
-    sign_out_successfully: 'Sign out successfully',
-    sign_in_successfully: 'Sign in successfully',
-    refresh_token_successfully: 'Refresh token successfully',
-    reset_password_successfully: 'Reset password successfully',
-    forbidden: 'Invalid route. Please check and try again.',
-    userbanned: 'You are banned! Please try again after 5 minutes',
+    wrong_verified_code: 'The verification code is incorrect.',
+    verify_require: 'Your account is not active. Please verify first.',
+    invalid_email_password: 'Invalid email or password. Please try again.',
+    role_not_exist: 'Invalid role information.',
+    sign_out_successfully: 'Signed out successfully.',
+    sign_in_successfully: 'Signed in successfully.',
+    refresh_token_successfully: 'Session refreshed successfully.',
+    reset_password_successfully: 'Password has been reset successfully.',
+    forbidden: 'Access denied. Invalid route.',
+    userbanned:
+      'Your account has been temporarily banned. Please try again in 5 minutes.',
+    sign_in_with_google_successfully: 'Signed in with Google successfully.',
+    wait_before_resend:
+      'Please wait 60 seconds before requesting another email.',
   },
 
   auth: {
     ratelimit: {
-      too_many_requests: 'You send too many request. Please try again',
+      too_many_requests: 'Too many requests. Please try again later.',
     },
     refresh_token: {
-      invalid_or_expired: 'This refresh token is invalid or expired',
-      missing: 'Invalid information, please try again',
-      not_match_cookie_between_body: 'Invalid information, please try again',
+      invalid_or_expired: 'The refresh token is invalid or has expired.',
+      missing: 'Missing refresh token. Please try again.',
+      not_match_cookie_between_body:
+        'Refresh token mismatch. Please try again.',
     },
   },
 };
@@ -50,4 +53,8 @@ export const prefix_key_cached = {
   forgot_password_code: 'forgotpassword:email-code:',
   number_verified: 'number_verified:email-code:',
   userbanned: 'userbanned:email:',
+  signupinfo: 'signupinfo:email:',
+  sendmail: 'sendmail:email:',
 };
+export const ttlCache = 5 * 60 * 1000;
+export const ttlCacheEmail = 60 * 1000;

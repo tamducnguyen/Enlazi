@@ -3,7 +3,6 @@ import {
   BadRequestException,
   Inject,
   UnauthorizedException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { SignUpDTO } from './dto/user.singup.dto';
@@ -12,6 +11,7 @@ import {
   HttpStatusCodes,
   message,
   prefix_key_cached,
+  ttlCacheEmail,
 } from '../common/constants.common';
 import { MailService } from '../mail/mail.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -28,9 +28,12 @@ import { v4 } from 'uuid';
 import { RefreshDTO } from './dto/users.refresh.dto';
 import { SignOutDTO } from './dto/users.signout.dto';
 import { sendResponse } from '../common/helper/response.helper';
-import { SendVerifyCodeDTO } from './dto/users.sendverifycode.dto';
 import { ForgotPasswordDTO } from './dto/users.forgotpassword.dto';
 import { VerifyForgotPasswordDTO } from './dto/users.verifyforgpass.dto';
+import { Provider } from './oauth/provider.enum';
+import { UserEntity } from '../users/users.entity';
+import { ttlCache } from '../common/constants.common';
+import { RefreshTokenEntity } from './token/refresh-token.entity';
 @Injectable()
 export class AuthService {
   constructor(
@@ -38,7 +41,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
-    private readonly configureService: ConfigService,
+    private readonly configService: ConfigService,
   ) {}
   /**
    * Generates, sends, and caches a verification code via email.
@@ -49,55 +52,53 @@ export class AuthService {
     const verifyCode = generateVerificationCode();
     await this.mailService.sendWelcomeAndVerifyCode(email, verifyCode);
     const key = prefix_key_cached.verify_code + email;
-    await this.cacheManager.set(key, verifyCode, 5 * 60 * 1000); //TTL = 5 minutes
+    await this.cacheManager.set(key, verifyCode, ttlCache); //TTL = 5 minutes
   }
   /**
-   * Registers a new user or updates an existing one if not yet verified.
+   * Registers a new user or updates an existing one in cache memory.
    *
-   * - If a user with the given email exists and is verified, throws a BadRequestException.
-   * - If the user exists but is not verified, updates the user's information and resends the verification code.
+   * - If a user with the given email exists, throws a BadRequestException.
    * - If the user does not exist, creates a new user and sends a verification code.
    *
    * @param userCreatedDTO - The data transfer object containing user input (email, username, password)
    * @returns A success message indicating the verification code has been sent
-   * @throws BadRequestException - If the user already exists and is verified
+   * @throws BadRequestException - If the user already exists
    */
   async signUp(signUpDTO: SignUpDTO) {
     const { email } = signUpDTO;
-    const userFound = await this.authRepository.findUserByEmail(email);
-    if (userFound) {
-      if (userFound.isVerified) {
-        throw new BadRequestException(message.user.exist);
-      }
-      const userRole = await this.authRepository.findRoleByName(Role.Student);
-      if (!userRole) {
-        throw new InternalServerErrorException(message.user.role_not_exist);
-      }
-      const userEntity = {
-        email: signUpDTO.email,
-        username: signUpDTO.username,
-        hashedpassword: await HashHelper.hash(signUpDTO.password),
-      };
-      await this.authRepository.updateUserById(userFound.id, userEntity);
-      await this.cacheManager.del(prefix_key_cached.verify_code + email);
-      await this.sendAndCacheVerificationCode(email);
-      return sendResponse(
-        HttpStatusCodes.Created,
-        message.user.send_code_successfully,
-      );
+    const oAuthAccountFounded = await this.authRepository.findOAuthAccount(
+      Provider.Credential,
+      email,
+    );
+    if (oAuthAccountFounded) {
+      throw new BadRequestException(message.user.exist);
+    }
+    const keySendMail = prefix_key_cached.sendmail + email;
+    const isSendmail = await this.cacheManager.get<boolean>(keySendMail);
+    if (isSendmail) {
+      throw new BadRequestException(message.user.wait_before_resend);
     }
     const userRole = await this.authRepository.findRoleByName(Role.Student);
     if (!userRole) {
-      throw new InternalServerErrorException(message.user.role_not_exist);
+      throw new Error(message.user.role_not_exist);
     }
-    const userEntity = {
+    const userEntity: Partial<UserEntity> = {
       email: signUpDTO.email,
       username: signUpDTO.username,
       hashedpassword: await HashHelper.hash(signUpDTO.password),
       roles: [userRole],
     };
-    await this.authRepository.createUser(userEntity);
+    await this.cacheManager.set(
+      prefix_key_cached.signupinfo + email,
+      userEntity,
+      ttlCache,
+    );
     await this.sendAndCacheVerificationCode(email);
+    await this.cacheManager.set(
+      prefix_key_cached.sendmail + email,
+      true,
+      ttlCacheEmail,
+    );
     return sendResponse(
       HttpStatusCodes.Created,
       message.user.send_code_successfully,
@@ -106,81 +107,93 @@ export class AuthService {
   /**
    * Verifies a user's account using the provided verification code.
    * - If user doesn't exist, throws a BadRequestException
-   * - Compares the provided code with the one stored in Redis.
-   * - If valid, marks the user as verified and removes the code from Redis.
+   * - Compares the provided code with the one stored in Cache memory.
+   * - If valid, create OAuthAccount with/without user account and removes cache keys from Cache memory.
    *
    * @param email - The user's email
    * @param code - The verification code entered by the user
    * @returns A success message upon successful verification
-   * @throws BadRequestException - If the code is invalid or expired
+   * @throws BadRequestException - If the code is invalid or expired or user got banned
    */
-  // Triển khai việc lockout nếu quá 5 lần xác minh
   async verifyUser(verifyDTO: VerifyDTO) {
     const { email, verify_code } = verifyDTO;
     const keyUserBanned = prefix_key_cached.userbanned + email;
+    //if user banned throw BadExceptionResponse
     const isBanned = await this.cacheManager.get<boolean>(keyUserBanned);
     if (isBanned) {
       throw new BadRequestException(message.user.userbanned);
     }
-    const userFound = await this.authRepository.findUserByEmail(email);
-    if (!userFound) {
+    //if oAuthAccount exist throw BadExceptionResponse
+    const oAuthAccountFounded = await this.authRepository.findOAuthAccount(
+      Provider.Credential,
+      email,
+    );
+    if (oAuthAccountFounded) {
+      throw new BadRequestException(message.user.exist);
+    }
+    //if dont have sign up infor or verefy code cached in memory with user's email throw BadExceptionResponse
+    const keyCacheSignUpInfo = prefix_key_cached.signupinfo + email;
+    const keyCacheCode = prefix_key_cached.verify_code + email;
+    const codeFromCacheStorage =
+      await this.cacheManager.get<string>(keyCacheCode);
+    const signUpInfoCached =
+      await this.cacheManager.get<Partial<UserEntity>>(keyCacheSignUpInfo);
+    if (!signUpInfoCached || !codeFromCacheStorage) {
       throw new BadRequestException(message.user.not_exist);
     }
-    if (userFound.isVerified) {
-      throw new BadRequestException(message.user.already_verified);
-    }
-    const keyCacheCode = prefix_key_cached.verify_code + email;
-    const codeFromCacheStorage = await this.cacheManager.get(keyCacheCode);
+    //get attempts, if attempts equal or greater than 5, user got banned
     const keyAttempNumber = prefix_key_cached.number_verified + email;
-    let attemps = (await this.cacheManager.get<number>(keyAttempNumber)) || 0;
-    if (!codeFromCacheStorage || verify_code !== codeFromCacheStorage) {
+    let attempts = (await this.cacheManager.get<number>(keyAttempNumber)) || 0;
+    if (String(verify_code) !== String(codeFromCacheStorage)) {
       await this.cacheManager.set<number>(
         keyAttempNumber,
-        ++attemps,
-        5 * 60 * 1000,
+        ++attempts,
+        ttlCache,
       );
-      if (attemps >= 5) {
-        await this.cacheManager.set<boolean>(
-          keyUserBanned,
-          true,
-          5 * 60 * 1000,
-        );
+      if (attempts >= 5) {
+        await this.cacheManager.set<boolean>(keyUserBanned, true, ttlCache);
         await this.cacheManager.del(keyAttempNumber);
         throw new BadRequestException(message.user.userbanned);
       }
       throw new BadRequestException(message.user.wrong_verified_code);
     }
-    await this.authRepository.switchIsVerifiedIntoTrue(email);
+    const oAuthAccountEntity = {
+      provider: Provider.Credential,
+      providerAccountId: signUpInfoCached.email,
+    };
+    //if email exist, create another OAuth account(Credential)
+    const userFounded = await this.authRepository.findUserByEmail(email);
+    if (userFounded) {
+      const userAddedPassword: Partial<UserEntity> = {
+        hashedpassword: signUpInfoCached.hashedpassword,
+      };
+      await this.authRepository.updateUserById(
+        userFounded.id,
+        userAddedPassword,
+      );
+      await this.authRepository.createOAuthAccount({
+        ...oAuthAccountEntity,
+        user: userFounded,
+      });
+      //del cache
+      await this.cacheManager.del(prefix_key_cached.signupinfo + email);
+      await this.cacheManager.del(keyAttempNumber);
+      await this.cacheManager.del(keyCacheCode);
+      return sendResponse(HttpStatusCodes.OK, message.user.verify_successfully);
+    }
+    //if email not exist create user and OAuth account with transaction
+    const userEntity: Partial<UserEntity> = {
+      email: signUpInfoCached.email,
+      username: signUpInfoCached.username,
+      hashedpassword: signUpInfoCached.hashedpassword,
+      roles: signUpInfoCached.roles,
+    };
+    await this.authRepository.createUser(userEntity, oAuthAccountEntity);
+    //del cache
+    await this.cacheManager.del(prefix_key_cached.signupinfo + email);
     await this.cacheManager.del(keyAttempNumber);
     await this.cacheManager.del(keyCacheCode);
     return sendResponse(HttpStatusCodes.OK, message.user.verify_successfully);
-  }
-  /**
-   * Verifies a user's account:
-   *  - Checks ban status (5 min) to prevent brute force.
-   *  - Validates user exists and is not already verified.
-   *  - Compares provided code with cached code.
-   *    + On mismatch: increments failed attempts (TTL 5 min), bans if >=5.
-   *    + On match: marks user verified, clears code and attempt counter.
-   *  - Returns success response.
-   */
-
-  async sendVerifyCode(sendVerifyCodeDTO: SendVerifyCodeDTO) {
-    const { email } = sendVerifyCodeDTO;
-    const userFound = await this.authRepository.findUserByEmail(email);
-    if (!userFound) {
-      throw new BadRequestException(message.user.not_exist);
-    }
-    if (userFound.isVerified) {
-      throw new BadRequestException(message.user.already_verified);
-    }
-    const key = prefix_key_cached.verify_code + email;
-    await this.cacheManager.del(key);
-    await this.sendAndCacheVerificationCode(email);
-    return sendResponse(
-      HttpStatusCodes.OK,
-      message.user.send_code_successfully,
-    );
   }
   /**
    * Handles user sign-in process:
@@ -204,28 +217,40 @@ export class AuthService {
    */
   async signIn(signInDTO: SignInDTO, response: Response) {
     const { email, password } = signInDTO;
-    const userFound = await this.authRepository.findUserByEmail(email);
-    if (!userFound) {
-      throw new BadRequestException(message.user.not_exist);
+    const oAuthAccountFounded = await this.authRepository.findOAuthAccount(
+      Provider.Credential,
+      email,
+    );
+    if (!oAuthAccountFounded) {
+      throw new BadRequestException(message.user.invalid_email_password);
     }
-    if (!userFound.isVerified) {
+    const userFounded = await this.authRepository.findUserById(
+      oAuthAccountFounded.user.id,
+    );
+    if (!userFounded) {
+      throw new Error('Conflict database');
+    }
+    if (!userFounded.isActive) {
       throw new BadRequestException(message.user.verify_require);
+    }
+    if (!userFounded.hashedpassword) {
+      throw new Error('dont have password');
     }
     const isCorrectPassword = await HashHelper.compare(
       password,
-      userFound.hashedpassword,
+      userFounded.hashedpassword,
     );
     if (!isCorrectPassword) {
-      throw new BadRequestException(message.user.wrong_password);
+      throw new BadRequestException(message.user.invalid_email_password);
     }
     const userInfo = {
-      sub: userFound.id,
-      email: email,
-      roles: userFound.roles.map((role) => role.name),
+      sub: oAuthAccountFounded.user.id,
+      email: oAuthAccountFounded.user.email,
+      roles: oAuthAccountFounded.user.roles.map((role) => role.name),
     };
     const accessToken = await this.jwtService.signAsync(userInfo);
     const refreshToken = await this.jwtService.signAsync(userInfo, {
-      expiresIn: '365d',
+      expiresIn: this.configService.get<string>('EXPIRE_IN_RF'),
     });
     const { exp } = this.jwtService.decode<{ exp: number }>(refreshToken) as {
       exp: number;
@@ -234,9 +259,9 @@ export class AuthService {
     const sessionId = v4();
     //userGuard: API key???
     const refreshTokenHashed = await HashHelper.hash(refreshToken);
-    const refreshTokenEntity = {
+    const refreshTokenEntity: Partial<RefreshTokenEntity> = {
       tokenHash: refreshTokenHashed,
-      user: userFound,
+      user: oAuthAccountFounded.user,
       expiresAt: expires_at,
       sessionId: sessionId,
     };
@@ -272,54 +297,25 @@ export class AuthService {
   }
   /**
    * Refreshes an access token using a refresh token and session ID
-   * from either the request body or cookies.
+   * from either the request header or cookies.
    *
    * Steps:
-   *  1. Read refreshToken & sessionId (prefer body, fallback to cookies).
-   *  2. Validate presence; if both sources exist, ensure they match.
-   *  3. Verify refreshToken signature and decode payload.
-   *  4. Fetch stored refresh token by sessionId, ensure not revoked.
-   *  5. Compare provided token with stored hash.
-   *  6. Retrieve user; if valid, sign a new access token.
-   *  7. Set new access token in an HttpOnly cookie and return success.
+   *  - Reads refreshToken and sessionId from request headers or cookies.
+   *  - Validates presence and, if both sources are provided, ensures they match.
+   *  - Verifies refreshToken signature using the configured secret.
+   *  - Transfer to body and vaidate
+   *  - Fetch stored refresh token by sessionId, ensure not revoked.
+   *  - Compare provided token with stored hash.
+   *  - Retrieve user; if valid, sign a new access token.
+   *  - Set new access token in an HttpOnly cookie and return success.
    *
    * Security:
    *  - HttpOnly + Secure cookies to prevent XSS and require HTTPS.
    *  - `sameSite: 'strict'` blocks cross-site requests (adjust if needed).
    *  - Rotation/reuse detection not implemented but recommended.
    */
-  async refresh(response: Response, request: Request, refreshDTO?: RefreshDTO) {
-    const bodyRT = refreshDTO?.refreshToken;
-    const bodySid = refreshDTO?.sessionId;
-
-    const cookieRT = request.cookies?.refreshToken as string;
-    const cookieSid = request.cookies?.sessionId as string;
-
-    const refreshToken: string = bodyRT ?? cookieRT;
-    const sessionId: string = bodySid ?? cookieSid;
-
-    if (!refreshToken || !sessionId) {
-      throw new BadRequestException(message.auth.refresh_token.missing);
-    }
-
-    if (bodyRT && cookieRT && (bodyRT !== cookieRT || cookieSid !== bodySid)) {
-      throw new BadRequestException(
-        message.auth.refresh_token.not_match_cookie_between_body,
-      );
-    }
-    let userInfoDecoded: Payload;
-    try {
-      userInfoDecoded = await this.jwtService.verifyAsync<Payload>(
-        refreshToken,
-        {
-          secret: this.configureService.get<string>('SECRET'),
-        },
-      );
-    } catch {
-      throw new UnauthorizedException(
-        message.auth.refresh_token.invalid_or_expired,
-      );
-    }
+  async refresh(response: Response, request: Request, refreshDTO: RefreshDTO) {
+    const { refreshToken, sessionId } = refreshDTO;
     const refreshTokenStored =
       await this.authRepository.findRefreshTokenBySessionId(sessionId);
     if (!refreshTokenStored || refreshTokenStored.isRevoked) {
@@ -336,6 +332,10 @@ export class AuthService {
       throw new UnauthorizedException(
         message.auth.refresh_token.invalid_or_expired,
       );
+    }
+    const userInfoDecoded = request.user as Payload;
+    if (!userInfoDecoded) {
+      throw new Error('Dont have req.user from RefreshGuard');
     }
     const userFound = await this.authRepository.findUserById(
       userInfoDecoded.sub,
@@ -364,9 +364,10 @@ export class AuthService {
   }
   /**
    * Signs the user out by revoking the refresh token session and clearing cookies.
-   *  - Reads refreshToken and sessionId from request body or cookies.
+   *  - Reads refreshToken and sessionId from request headers or cookies.
    *  - Validates presence and, if both sources are provided, ensures they match.
    *  - Verifies refreshToken signature using the configured secret.
+   *  - Transfer to body and vaidate
    *  - Checks that the session exists in the database and is not revoked.
    *  - Compares the provided refreshToken with the stored token hash.
    *  - Clears authentication cookies (accessToken, refreshToken, sessionId).
@@ -376,35 +377,8 @@ export class AuthService {
    * Security: verification ensures the token belongs to an active session,
    * and revocation prevents reuse. Cookies are cleared to remove local auth data.
    */
-  async signOut(res: Response, req: Request, signOutDTO?: SignOutDTO) {
-    const bodyRT = signOutDTO?.refreshToken;
-    const bodySid = signOutDTO?.sessionId;
-
-    const cookieRT = req.cookies?.refreshToken as string;
-    const cookieSid = req.cookies?.sessionId as string;
-
-    const refreshToken: string = bodyRT ?? cookieRT;
-    const sessionId: string = bodySid ?? cookieSid;
-
-    if (!refreshToken || !sessionId) {
-      throw new BadRequestException(message.auth.refresh_token.missing);
-    }
-
-    if (bodyRT && cookieRT && (bodyRT !== cookieRT || cookieSid !== bodySid)) {
-      throw new BadRequestException(
-        message.auth.refresh_token.not_match_cookie_between_body,
-      );
-    }
-
-    try {
-      await this.jwtService.verifyAsync<Payload>(refreshToken, {
-        secret: this.configureService.get<string>('SECRET'),
-      });
-    } catch {
-      throw new UnauthorizedException(
-        message.auth.refresh_token.invalid_or_expired,
-      );
-    }
+  async signOut(res: Response, signOutDTO: SignOutDTO) {
+    const { refreshToken, sessionId } = signOutDTO;
     const refreshTokenStored =
       await this.authRepository.findRefreshTokenBySessionId(sessionId);
     if (!refreshTokenStored || refreshTokenStored.isRevoked) {
@@ -430,6 +404,7 @@ export class AuthService {
   }
   /**
    * Starts the forgot password process:
+   *  - Check ban status(5m)
    *  - Checks if the email belongs to an existing, verified user.
    *  - Clears any previous reset code from cache.
    *  - Generates a new verification code, stores it in cache (5 min).
@@ -442,15 +417,29 @@ export class AuthService {
 
   async forgotPassword(forgotPasswordDTO: ForgotPasswordDTO) {
     const { email } = forgotPasswordDTO;
-    const userFound = await this.authRepository.findUserByEmail(email);
-    if (!userFound || !userFound.isVerified) {
+    const oAuthAccountFounded = await this.authRepository.findOAuthAccount(
+      Provider.Credential,
+      email,
+    );
+    if (!oAuthAccountFounded || !oAuthAccountFounded.user.isActive) {
       throw new BadRequestException(message.user.not_exist);
+    }
+    const keyUserBanned = prefix_key_cached.userbanned + email;
+    const isBanned = await this.cacheManager.get<boolean>(keyUserBanned);
+    if (isBanned) {
+      throw new BadRequestException(message.user.userbanned);
+    }
+    const keySendMail = prefix_key_cached.sendmail + email;
+    const isSendmail = await this.cacheManager.get(keySendMail);
+    if (isSendmail) {
+      throw new BadRequestException(message.user.wait_before_resend);
     }
     const key = prefix_key_cached.forgot_password_code + email;
     await this.cacheManager.del(key);
     const verifyCode = generateVerificationCode();
-    await this.cacheManager.set(key, verifyCode, 5 * 60 * 1000);
+    await this.cacheManager.set(key, verifyCode, ttlCache);
     await this.mailService.sendForgotPassword(email, verifyCode);
+    await this.cacheManager.set(keySendMail, true, ttlCacheEmail);
     return sendResponse(
       HttpStatusCodes.OK,
       message.user.send_code_successfully,
@@ -459,7 +448,7 @@ export class AuthService {
   /**
    * Verifies forgot password code and resets password:
    *  - Checks 5-minute ban status.
-   *  - Validates user exists and is verified.
+   *  - Validates OAuth account exists and is active.
    *  - On wrong code: increments attempt count (TTL 5 min), bans if >=5.
    *  - On correct code: clears cache, updates hashed password, revokes all refresh tokens.
    *  - Returns success response.
@@ -472,8 +461,11 @@ export class AuthService {
     if (isBanned) {
       throw new BadRequestException(message.user.userbanned);
     }
-    const userFound = await this.authRepository.findUserByEmail(email);
-    if (!userFound || !userFound.isVerified) {
+    const oAuthAccountFounded = await this.authRepository.findOAuthAccount(
+      Provider.Credential,
+      email,
+    );
+    if (!oAuthAccountFounded || !oAuthAccountFounded.user.isActive) {
       throw new BadRequestException(message.user.not_exist);
     }
     const key = prefix_key_cached.forgot_password_code + email;
@@ -481,9 +473,9 @@ export class AuthService {
     const keyAttempNumber = prefix_key_cached.number_verified + email;
     let attemps = (await this.cacheManager.get<number>(keyAttempNumber)) || 0;
     if (!codeFromCacheStorage || verify_code !== codeFromCacheStorage) {
-      await this.cacheManager.set(keyAttempNumber, ++attemps, 5 * 60 * 1000);
+      await this.cacheManager.set(keyAttempNumber, ++attemps, ttlCache);
       if (attemps >= 5) {
-        await this.cacheManager.set(keyUserBanned, true, 5 * 60 * 1000);
+        await this.cacheManager.set(keyUserBanned, true, ttlCache);
         await this.cacheManager.del(keyAttempNumber);
         throw new BadRequestException(message.user.userbanned);
       }
@@ -493,7 +485,9 @@ export class AuthService {
     await this.cacheManager.del(keyAttempNumber);
     const passwordHashed = await HashHelper.hash(password);
     await this.authRepository.resetPasswordByEmail(email, passwordHashed);
-    await this.authRepository.revokeAllRefreshTokenByUser(userFound);
+    await this.authRepository.revokeAllRefreshTokenByUser(
+      oAuthAccountFounded.user,
+    );
     return sendResponse(
       HttpStatusCodes.OK,
       message.user.reset_password_successfully,

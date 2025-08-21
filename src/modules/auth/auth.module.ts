@@ -6,19 +6,30 @@ import { UserEntity } from '../users/users.entity';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthRepository } from './auth.repository';
-import { JwtStrategy } from './jwt.strategy';
-import { UsersService } from '../users/users.service';
+import { JwtAccessStrategy } from './token/jwt.strategy';
 import { ConfigService } from '@nestjs/config';
 import { MailModule } from '../mail/mail.module';
 import { RoleEntity } from './role/roles.entity';
 import { RefreshTokenEntity } from './token/refresh-token.entity';
+import { GoogleAuthService } from './oauth/google.service';
+import { OAuthAccountEntity } from './oauth/oauth.entity';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, AuthRepository, JwtStrategy, UsersService],
+  providers: [
+    AuthService,
+    AuthRepository,
+    JwtAccessStrategy,
+    GoogleAuthService,
+  ],
   imports: [
     MailModule,
-    TypeOrmModule.forFeature([UserEntity, RoleEntity, RefreshTokenEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      RoleEntity,
+      RefreshTokenEntity,
+      OAuthAccountEntity,
+    ]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

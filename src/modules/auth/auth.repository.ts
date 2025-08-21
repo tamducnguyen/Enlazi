@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UserEntity } from '../users/users.entity';
 import { Role } from './role/roles.enum';
 import { RoleEntity } from './role/roles.entity';
 import { RefreshTokenEntity } from './token/refresh-token.entity';
+import { OAuthAccountEntity } from './oauth/oauth.entity';
+import { Provider } from './oauth/provider.enum';
 @Injectable()
 export class AuthRepository {
   constructor(
@@ -14,22 +16,40 @@ export class AuthRepository {
     private roleRepo: Repository<RoleEntity>,
     @InjectRepository(RefreshTokenEntity)
     private refreshTokenRepo: Repository<RefreshTokenEntity>,
+    @InjectRepository(OAuthAccountEntity)
+    private oAuthAccountRepo: Repository<OAuthAccountEntity>,
+    private readonly daraSource: DataSource,
   ) {}
   async checkUserExist(email: string) {
     return await this.userRepo.exists({ where: { email: email } });
   }
-  async createUser(user: Partial<UserEntity>) {
-    await this.userRepo.save(user);
+  async createUser(
+    user: Partial<UserEntity>,
+    oAuthAccount: Partial<OAuthAccountEntity>,
+  ): Promise<UserEntity> {
+    return await this.daraSource.transaction<UserEntity>(async (manager) => {
+      const userRepoTransaction = manager.getRepository(UserEntity);
+      const oAuthAccountRepoTransaction =
+        manager.getRepository(OAuthAccountEntity);
+      const userCreate = await userRepoTransaction.save(user);
+      await oAuthAccountRepoTransaction.save({
+        ...oAuthAccount,
+        user: userCreate,
+      });
+      return userCreate;
+    });
   }
-  async switchIsVerifiedIntoTrue(email: string) {
-    await this.userRepo.update({ email: email }, { isVerified: true });
+
+  async switchIsVerifiedIntoFalse(email: string) {
+    await this.userRepo.update({ email: email }, { isActive: false });
   }
+
   async findUserByEmail(email: string) {
     return await this.userRepo.findOne({
       select: {
         id: true,
         email: true,
-        isVerified: true,
+        isActive: true,
         roles: { name: true },
         hashedpassword: true,
       },
@@ -41,7 +61,7 @@ export class AuthRepository {
       select: {
         id: true,
         email: true,
-        isVerified: true,
+        isActive: true,
         roles: { name: true },
         hashedpassword: true,
       },
@@ -73,5 +93,13 @@ export class AuthRepository {
   }
   async revokeAllRefreshTokenByUser(user: UserEntity) {
     await this.refreshTokenRepo.delete({ user });
+  }
+  async createOAuthAccount(oAuthAccount: Partial<OAuthAccountEntity>) {
+    await this.oAuthAccountRepo.save(oAuthAccount);
+  }
+  async findOAuthAccount(provider: Provider, providerAccountId: string) {
+    return await this.oAuthAccountRepo.findOne({
+      where: { provider: provider, providerAccountId: providerAccountId },
+    });
   }
 }
