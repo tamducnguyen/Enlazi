@@ -17,6 +17,7 @@ async function bootstrap() {
     origin: process.env.FRONTEND_DOMAIN, // domain frontend
     credentials: true,
   });
+  app.setGlobalPrefix('api');
   console.log(process.env.NODE_ENV);
   if (process.env.NODE_ENV !== 'production') {
     setupSwagger(app);
