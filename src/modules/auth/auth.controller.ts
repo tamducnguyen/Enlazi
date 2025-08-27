@@ -7,20 +7,16 @@ import {
   HttpStatus,
   Body,
   Post,
-  Query,
-  Redirect,
-  Get,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
-  ApiExcludeEndpoint,
+  ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiTemporaryRedirectResponse,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -36,6 +32,7 @@ import { VerifyForgotPasswordDTO } from './dto/users.verifyforgpass.dto';
 import { UserThrottlerGuard } from '../common/guard/user_throttler.guard';
 import { GoogleAuthService } from './oauth/google.service';
 import { RefreshTokenGuard } from './token/refresh.jwt.guard';
+import { ExchangeCodeDTO } from './dto/users.exchangecode.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -165,21 +162,25 @@ export class AuthController {
   async verifyForgotPassword(@Body() verifyFPDTO: VerifyForgotPasswordDTO) {
     return this.authService.verifyAndResetPassword(verifyFPDTO);
   }
-  @HttpCode(HttpStatus.TEMPORARY_REDIRECT)
-  @Get('signin/google')
-  @ApiOperation({ summary: 'Redirect to Google' })
-  @ApiTemporaryRedirectResponse({
-    description: 'Redirect to sign up or sign in through Google ',
+  @Post('signin/google')
+  @ApiOperation({ summary: 'Sign in or sign up with Google account' })
+  @ApiOkResponse({
+    description:
+      'User sign in with Google account successfully, Send access token(1h), refresh token(1y), and session id through cookies(only web) and body',
   })
+  @ApiUnauthorizedResponse({
+    description:
+      'Google did not return id_token, Invalid Google Token, Email is not verified by Google',
+  })
+  @ApiInternalServerErrorResponse({ description: 'Code is invalid' })
   @SkipThrottle({ burst: true })
-  @Redirect()
-  async redirectToGoogle() {
-    return this.googleAuthService.redirectToGoogle();
-  }
-  @Get('signin/google/callback')
-  @ApiExcludeEndpoint()
-  @SkipThrottle({ burst: true })
-  async exchangeCode(@Query('code') code: string) {
-    return await this.googleAuthService.exchangeCodeForTokens(code);
+  async exchangeCode(
+    @Res({ passthrough: true }) response: Response,
+    @Body() exchangeCode: ExchangeCodeDTO,
+  ) {
+    return await this.googleAuthService.exchangeCodeForTokens(
+      response,
+      exchangeCode,
+    );
   }
 }

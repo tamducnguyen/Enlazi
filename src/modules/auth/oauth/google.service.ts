@@ -9,6 +9,8 @@ import { Role } from '../role/roles.enum';
 import { HttpStatusCodes, message } from 'src/modules/common/constants.common';
 import { RoleEntity } from '../role/roles.entity';
 import { v4 } from 'uuid';
+import { ExchangeCodeDTO } from '../dto/users.exchangecode.dto';
+import { Response } from 'express';
 
 @Injectable()
 export class GoogleAuthService {
@@ -24,7 +26,12 @@ export class GoogleAuthService {
       this.configService.get('GOOGLE_REDIRECT_URI'),
     );
   }
-  async sendTokens(id: string, email: string, roles: RoleEntity[]) {
+  async sendTokens(
+    response: Response,
+    id: string,
+    email: string,
+    roles: RoleEntity[],
+  ) {
     const userInfo = {
       sub: id,
       email: email,
@@ -40,31 +47,35 @@ export class GoogleAuthService {
       refreshtoken: refreshToken,
       sessionid: sessionId,
     };
+    response.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 1000, // 1 hour
+    });
+    response.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+    });
+    response.cookie('sessionId', sessionId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+    });
     return sendResponse(
       HttpStatusCodes.OK,
       message.user.sign_in_with_google_successfully,
       data,
     );
   }
-
-  async redirectToGoogle() {
-    const stateToken = await this.jwtService.signAsync(
-      {},
-      {
-        expiresIn: '5m',
-      },
-    );
-    const url = this.client.generateAuthUrl({
-      access_type: 'offline',
-      scope: ['openid', 'email', 'profile'],
-      prompt: 'consent',
-      state: stateToken,
-      redirect_uri: this.configService.get('GOOGLE_REDIRECT_URI'),
-    });
-    return { url };
-  }
-
-  async exchangeCodeForTokens(code: string) {
+  async exchangeCodeForTokens(
+    response: Response,
+    exchangeCode: ExchangeCodeDTO,
+  ) {
+    const { code } = exchangeCode;
     const { tokens } = await this.client.getToken(code);
     if (!tokens.id_token) {
       throw new UnauthorizedException('Google did not return id_token');
@@ -87,6 +98,7 @@ export class GoogleAuthService {
     );
     if (oAuthAccountFounded) {
       return await this.sendTokens(
+        response,
         oAuthAccountFounded.user.id,
         oAuthAccountFounded.user.email,
         oAuthAccountFounded.user.roles,
@@ -104,6 +116,7 @@ export class GoogleAuthService {
       };
       await this.authRepository.createOAuthAccount(oAuthAccount);
       return await this.sendTokens(
+        response,
         userFounded.id,
         userFounded.email,
         userFounded.roles,
@@ -128,6 +141,7 @@ export class GoogleAuthService {
       oAuthAccountEntity,
     );
     return await this.sendTokens(
+      response,
       userCreated.id,
       userCreated.email,
       userCreated.roles,
