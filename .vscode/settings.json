@@ -2,6 +2,8 @@
     "files.exclude": {
         "**/node_modules": true
     },
-    "files.eol": "\n"
+    "files.eol": "\n",                   // hoặc "\r\n" nếu bạn muốn ép CRLF
+    "prettier.endOfLine": "auto",        // giúp Prettier không báo lỗi
+    "editor.formatOnSave": true          // format khi lưu file
 
 }
