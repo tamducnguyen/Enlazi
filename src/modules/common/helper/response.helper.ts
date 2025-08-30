@@ -1,6 +1,8 @@
-export function sendResponse<T>(status: object, message: string, data?: T) {
+import { HttpStatus } from '@nestjs/common';
+
+export function sendResponse<T>(status: HttpStatus, message: string, data?: T) {
   const response = {
-    ...status,
+    status,
     message: message,
     data: data,
   };

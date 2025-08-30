@@ -19,8 +19,17 @@ export const message = {
     sign_in_with_google_successfully: 'Signed in with Google successfully.',
     wait_before_resend:
       'Please wait 60 seconds before requesting another email.',
+    not_support_change_password:
+      'Your account are not supported to change password',
+    must_not_same_password:
+      'New password must be different from the old password',
+    change_password_successfully: 'Change password successfully',
+    invalid_credentials: 'The credentials provided are invalid',
+    confirm_password_not_match:
+      'The new password and its confirmation do not match',
+    invalid_payload_token: 'Invalid authentication information',
+    get_profile_successfully: 'Get user profile successfully',
   },
-
   auth: {
     ratelimit: {
       too_many_requests: 'Too many requests. Please try again later.',
@@ -32,21 +41,11 @@ export const message = {
         'Refresh token mismatch. Please try again.',
     },
   },
-};
-export const HttpStatusCodes = {
-  OK: { statusCode: 200, error: 'OK' },
-  Created: { statusCode: 201, error: 'Created' },
-  NoContent: { statusCode: 204, error: 'No Content' },
-
-  BadRequest: { statusCode: 400, error: 'Bad Request' },
-  Unauthorized: { statusCode: 401, error: 'Unauthorized' },
-  Forbidden: { statusCode: 403, error: 'Forbidden' },
-  NotFound: { statusCode: 404, error: 'Not Found' },
-  Conflict: { statusCode: 409, error: 'Conflict' },
-  UnprocessableEntity: { statusCode: 422, error: 'Unprocessable Entity' },
-  TooManyRequests: { statusCode: 429, error: 'Too Many Requests' },
-  InternalServerError: { statusCode: 500, error: 'Internal Server Error' },
-  ServiceUnavailable: { statusCode: 503, error: 'Service Unavailable' },
+  google_auth_error: {
+    id_token_missing: 'Google did not return id_token',
+    invalid_token: 'Invalid Google Token',
+    email_not_verified: 'Email is not verified by Google',
+  },
 };
 export const prefix_key_cached = {
   verify_code: 'auth:email-code:',
@@ -58,3 +57,16 @@ export const prefix_key_cached = {
 };
 export const ttlCache = 5 * 60 * 1000;
 export const ttlCacheEmail = 60 * 1000;
+export const cookieOptions = {
+  name: {
+    accessToken: 'accessToken',
+    refreshToken: 'refreshToken',
+    sessionId: 'sessionId',
+  },
+  maxAge: {
+    accessToken: 60 * 60 * 1000, //1hour
+    refreshToken: 365 * 24 * 60 * 60 * 1000, //1year
+    sessionId: 365 * 24 * 60 * 60 * 1000, //1year
+  },
+  sameSite: 'strict',
+};

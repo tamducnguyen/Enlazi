@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { Payload } from '../model/payload.model';
+import { AuthUser } from './authuser.interface';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { message } from 'src/modules/common/constants.common';
@@ -40,7 +40,7 @@ export class RefreshTokenGuard implements CanActivate {
       );
     }
     try {
-      const userInfoDecoded = await this.jwtService.verifyAsync<Payload>(
+      const userInfoDecoded = await this.jwtService.verifyAsync<AuthUser>(
         refreshToken,
         {
           secret: this.configService.get<string>('SECRET'),

@@ -3,12 +3,13 @@ import {
   BadRequestException,
   Inject,
   UnauthorizedException,
+  HttpStatus,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { SignUpDTO } from './dto/user.singup.dto';
 import { AuthRepository } from './auth.repository';
 import {
-  HttpStatusCodes,
+  cookieOptions,
   message,
   prefix_key_cached,
   ttlCacheEmail,
@@ -16,14 +17,14 @@ import {
 import { MailService } from '../mail/mail.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { generateVerificationCode } from '../common/helper/generatecode';
+import { generateVerificationCode } from '../common/helper/generatecode.helper';
 import { HashHelper } from '../common/helper/hash.helper';
 import { SignInDTO } from './dto/user.singin.dto';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from './role/roles.enum';
+import { Role } from '../role/roles.enum';
 import { VerifyDTO } from './dto/user.verify.dto';
 import { ConfigService } from '@nestjs/config';
-import { Payload } from './model/payload.model';
+import { AuthUser } from '../token/authuser.interface';
 import { v4 } from 'uuid';
 import { RefreshDTO } from './dto/users.refresh.dto';
 import { SignOutDTO } from './dto/users.signout.dto';
@@ -33,7 +34,7 @@ import { VerifyForgotPasswordDTO } from './dto/users.verifyforgpass.dto';
 import { Provider } from './oauth/provider.enum';
 import { UserEntity } from '../users/users.entity';
 import { ttlCache } from '../common/constants.common';
-import { RefreshTokenEntity } from './token/refresh-token.entity';
+import { RefreshTokenEntity } from '../token/refresh-token.entity';
 @Injectable()
 export class AuthService {
   constructor(
@@ -100,7 +101,7 @@ export class AuthService {
       ttlCacheEmail,
     );
     return sendResponse(
-      HttpStatusCodes.Created,
+      HttpStatus.CREATED,
       message.user.send_code_successfully,
     );
   }
@@ -179,7 +180,7 @@ export class AuthService {
       await this.cacheManager.del(prefix_key_cached.signupinfo + email);
       await this.cacheManager.del(keyAttempNumber);
       await this.cacheManager.del(keyCacheCode);
-      return sendResponse(HttpStatusCodes.OK, message.user.verify_successfully);
+      return sendResponse(HttpStatus.OK, message.user.verify_successfully);
     }
     //if email not exist create user and OAuth account with transaction
     const userEntity: Partial<UserEntity> = {
@@ -193,7 +194,7 @@ export class AuthService {
     await this.cacheManager.del(prefix_key_cached.signupinfo + email);
     await this.cacheManager.del(keyAttempNumber);
     await this.cacheManager.del(keyCacheCode);
-    return sendResponse(HttpStatusCodes.OK, message.user.verify_successfully);
+    return sendResponse(HttpStatus.OK, message.user.verify_successfully);
   }
   /**
    * Handles user sign-in process:
@@ -271,29 +272,25 @@ export class AuthService {
       refreshtoken: refreshToken,
       sessionid: sessionId,
     };
-    response.cookie('accessToken', accessToken, {
+    response.cookie(cookieOptions.name.accessToken, accessToken, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 60 * 60 * 1000, // 1 hour
+      maxAge: cookieOptions.maxAge.accessToken, // 1 hour
     });
-    response.cookie('refreshToken', refreshToken, {
+    response.cookie(cookieOptions.name.refreshToken, refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+      maxAge: cookieOptions.maxAge.refreshToken, // 1 year
     });
-    response.cookie('sessionId', sessionId, {
+    response.cookie(cookieOptions.name.sessionId, sessionId, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+      maxAge: cookieOptions.maxAge.sessionId, // 1 year
     });
-    return sendResponse(
-      HttpStatusCodes.OK,
-      message.user.sign_in_successfully,
-      data,
-    );
+    return sendResponse(HttpStatus.OK, message.user.sign_in_successfully, data);
   }
   /**
    * Refreshes an access token using a refresh token and session ID
@@ -314,7 +311,11 @@ export class AuthService {
    *  - `sameSite: 'strict'` blocks cross-site requests (adjust if needed).
    *  - Rotation/reuse detection not implemented but recommended.
    */
-  async refresh(response: Response, request: Request, refreshDTO: RefreshDTO) {
+  async refresh(
+    response: Response,
+    currentUser: AuthUser,
+    refreshDTO: RefreshDTO,
+  ) {
     const { refreshToken, sessionId } = refreshDTO;
     const refreshTokenStored =
       await this.authRepository.findRefreshTokenBySessionId(sessionId);
@@ -333,7 +334,7 @@ export class AuthService {
         message.auth.refresh_token.invalid_or_expired,
       );
     }
-    const userInfoDecoded = request.user as Payload;
+    const userInfoDecoded = currentUser;
     if (!userInfoDecoded) {
       throw new Error('Dont have req.user from RefreshGuard');
     }
@@ -350,14 +351,14 @@ export class AuthService {
       roles: userFound.roles.map((r) => r.name),
     };
     const accessToken = await this.jwtService.signAsync(userInfo);
-    response.cookie('accessToken', accessToken, {
+    response.cookie(cookieOptions.name.accessToken, accessToken, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 60 * 60 * 1000, // 1 hour
+      maxAge: cookieOptions.maxAge.accessToken, // 1 hour
     });
     return sendResponse(
-      HttpStatusCodes.OK,
+      HttpStatus.OK,
       message.user.refresh_token_successfully,
       accessToken,
     );
@@ -396,11 +397,11 @@ export class AuthService {
         message.auth.refresh_token.invalid_or_expired,
       );
     }
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.clearCookie('sessionId');
+    res.clearCookie(cookieOptions.name.accessToken);
+    res.clearCookie(cookieOptions.name.refreshToken);
+    res.clearCookie(cookieOptions.name.sessionId);
     await this.authRepository.revokeRefreshTokenById(refreshTokenStored.id);
-    return sendResponse(HttpStatusCodes.OK, message.user.sign_out_successfully);
+    return sendResponse(HttpStatus.OK, message.user.sign_out_successfully);
   }
   /**
    * Starts the forgot password process:
@@ -440,10 +441,7 @@ export class AuthService {
     await this.cacheManager.set(key, verifyCode, ttlCache);
     await this.mailService.sendForgotPassword(email, verifyCode);
     await this.cacheManager.set(keySendMail, true, ttlCacheEmail);
-    return sendResponse(
-      HttpStatusCodes.OK,
-      message.user.send_code_successfully,
-    );
+    return sendResponse(HttpStatus.OK, message.user.send_code_successfully);
   }
   /**
    * Verifies forgot password code and resets password:
@@ -454,7 +452,10 @@ export class AuthService {
    *  - Returns success response.
    */
 
-  async verifyAndResetPassword(verifyFPDTO: VerifyForgotPasswordDTO) {
+  async verifyAndResetPassword(
+    res: Response,
+    verifyFPDTO: VerifyForgotPasswordDTO,
+  ) {
     const { email, verify_code, password } = verifyFPDTO;
     const keyUserBanned = prefix_key_cached.userbanned + email;
     const isBanned = await this.cacheManager.get<boolean>(keyUserBanned);
@@ -483,13 +484,16 @@ export class AuthService {
     }
     await this.cacheManager.del(key);
     await this.cacheManager.del(keyAttempNumber);
-    const passwordHashed = await HashHelper.hash(password);
-    await this.authRepository.resetPasswordByEmail(email, passwordHashed);
-    await this.authRepository.revokeAllRefreshTokenByUser(
-      oAuthAccountFounded.user,
-    );
+    const userEntity: UserEntity = {
+      ...oAuthAccountFounded.user,
+      hashedpassword: await HashHelper.hash(password),
+    };
+    await this.authRepository.resetPasswordAndRevokeAllRefreshToken(userEntity);
+    res.clearCookie(cookieOptions.name.accessToken);
+    res.clearCookie(cookieOptions.name.refreshToken);
+    res.clearCookie(cookieOptions.name.sessionId);
     return sendResponse(
-      HttpStatusCodes.OK,
+      HttpStatus.OK,
       message.user.reset_password_successfully,
     );
   }

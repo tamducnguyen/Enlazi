@@ -1,6 +1,6 @@
 import { Role } from '../role/roles.enum';
 
-export class Payload {
+export class AuthUser {
   constructor(roles: Role[], sub: string, email: string) {
     this.roles = roles;
     this.sub = sub;
