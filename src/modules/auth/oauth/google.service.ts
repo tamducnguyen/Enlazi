@@ -1,13 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client } from 'google-auth-library';
 import { Provider } from './provider.enum';
 import { AuthRepository } from '../auth.repository';
 import { sendResponse } from 'src/modules/common/helper/response.helper';
-import { Role } from '../role/roles.enum';
-import { HttpStatusCodes, message } from 'src/modules/common/constants.common';
-import { RoleEntity } from '../role/roles.entity';
+import { Role } from '../../role/roles.enum';
+import { cookieOptions, message } from 'src/modules/common/constants.common';
+import { RoleEntity } from '../../role/roles.entity';
 import { v4 } from 'uuid';
 import { ExchangeCodeDTO } from '../dto/users.exchangecode.dto';
 import { Response } from 'express';
@@ -40,33 +40,33 @@ export class GoogleAuthService {
     const sessionId = v4();
     const accessToken = await this.jwtService.signAsync(userInfo);
     const refreshToken = await this.jwtService.signAsync(userInfo, {
-      expiresIn: '365d',
+      expiresIn: await this.configService.get('EXPIRE_IN_RF'),
     });
     const data = {
       accesstoken: accessToken,
       refreshtoken: refreshToken,
       sessionid: sessionId,
     };
-    response.cookie('accessToken', accessToken, {
+    response.cookie(cookieOptions.name.accessToken, accessToken, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 60 * 60 * 1000, // 1 hour
+      maxAge: cookieOptions.maxAge.accessToken, // 1 hour
     });
-    response.cookie('refreshToken', refreshToken, {
+    response.cookie(cookieOptions.name.refreshToken, refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+      maxAge: cookieOptions.maxAge.refreshToken, // 1 year
     });
-    response.cookie('sessionId', sessionId, {
+    response.cookie(cookieOptions.name.sessionId, sessionId, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+      maxAge: cookieOptions.maxAge.sessionId, // 1 year
     });
     return sendResponse(
-      HttpStatusCodes.OK,
+      HttpStatus.OK,
       message.user.sign_in_with_google_successfully,
       data,
     );
@@ -78,7 +78,9 @@ export class GoogleAuthService {
     const { code } = exchangeCode;
     const { tokens } = await this.client.getToken(code);
     if (!tokens.id_token) {
-      throw new UnauthorizedException('Google did not return id_token');
+      throw new UnauthorizedException(
+        message.google_auth_error.id_token_missing,
+      );
     }
     const ticket = await this.client.verifyIdToken({
       idToken: tokens.id_token,
@@ -86,17 +88,19 @@ export class GoogleAuthService {
     });
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
-      throw new UnauthorizedException('Invalid Google Token');
+      throw new UnauthorizedException(message.google_auth_error.invalid_token);
     }
     if (!payload.email_verified) {
-      throw new UnauthorizedException('Email is not verified by Google');
+      throw new UnauthorizedException(
+        message.google_auth_error.email_not_verified,
+      );
     }
-    //if OAuthAcount exists, log in send tokens
+    //if OAuthAcount exists,check active status, log in send tokens
     const oAuthAccountFounded = await this.authRepository.findOAuthAccount(
       Provider.Google,
       payload.sub,
     );
-    if (oAuthAccountFounded) {
+    if (oAuthAccountFounded && oAuthAccountFounded.user.isActive) {
       return await this.sendTokens(
         response,
         oAuthAccountFounded.user.id,

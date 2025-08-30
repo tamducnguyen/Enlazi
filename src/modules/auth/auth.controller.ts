@@ -1,7 +1,6 @@
 import {
   Controller,
   Res,
-  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -31,8 +30,10 @@ import { ForgotPasswordDTO } from './dto/users.forgotpassword.dto';
 import { VerifyForgotPasswordDTO } from './dto/users.verifyforgpass.dto';
 import { UserThrottlerGuard } from '../common/guard/user_throttler.guard';
 import { GoogleAuthService } from './oauth/google.service';
-import { RefreshTokenGuard } from './token/refresh.jwt.guard';
+import { RefreshTokenGuard } from '../token/refresh.jwt.guard';
 import { ExchangeCodeDTO } from './dto/users.exchangecode.dto';
+import { CurrentUser } from '../token/currentuser.decorator';
+import { AuthUser } from '../token/authuser.interface';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -107,10 +108,10 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Refresh token are invalid' })
   async refresh(
     @Res({ passthrough: true }) response: Response,
-    @Req() request: Request,
+    @CurrentUser() currentUser: AuthUser,
     @Body() refreshDTO: RefreshDTO,
   ) {
-    return await this.authService.refresh(response, request, refreshDTO);
+    return await this.authService.refresh(response, currentUser, refreshDTO);
   }
 
   @HttpCode(HttpStatus.OK)
@@ -153,14 +154,18 @@ export class AuthController {
   @Post('verifyforgotpassword')
   @ApiOperation({ summary: 'Verify reset code and update the user password' })
   @ApiOkResponse({
-    description: 'Reset password sucessfully ',
+    description:
+      'Reset password sucessfully, clear access and refresh token, sessionId cookies(web automatically) ',
   })
   @ApiBadRequestResponse({
     description:
       'User not exist / User send invalid verefy code/ User got banned',
   })
-  async verifyForgotPassword(@Body() verifyFPDTO: VerifyForgotPasswordDTO) {
-    return this.authService.verifyAndResetPassword(verifyFPDTO);
+  async verifyForgotPassword(
+    @Res({ passthrough: true }) res: Response,
+    @Body() verifyFPDTO: VerifyForgotPasswordDTO,
+  ) {
+    return this.authService.verifyAndResetPassword(res, verifyFPDTO);
   }
   @Post('signin/google')
   @ApiOperation({ summary: 'Sign in or sign up with Google account' })

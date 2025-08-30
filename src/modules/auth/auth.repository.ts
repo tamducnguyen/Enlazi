@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { UserEntity } from '../users/users.entity';
-import { Role } from './role/roles.enum';
-import { RoleEntity } from './role/roles.entity';
-import { RefreshTokenEntity } from './token/refresh-token.entity';
+import { Role } from '../role/roles.enum';
+import { RoleEntity } from '../role/roles.entity';
+import { RefreshTokenEntity } from '../token/refresh-token.entity';
 import { OAuthAccountEntity } from './oauth/oauth.entity';
 import { Provider } from './oauth/provider.enum';
 @Injectable()
@@ -85,14 +85,17 @@ export class AuthRepository {
   async revokeRefreshTokenById(id: string) {
     await this.refreshTokenRepo.update({ id: id }, { isRevoked: true });
   }
-  async resetPasswordByEmail(email: string, hashedpassword: string) {
-    await this.userRepo.update(
-      { email: email },
-      { hashedpassword: hashedpassword },
-    );
-  }
-  async revokeAllRefreshTokenByUser(user: UserEntity) {
-    await this.refreshTokenRepo.delete({ user });
+  async resetPasswordAndRevokeAllRefreshToken(user: UserEntity) {
+    return await this.daraSource.transaction(async (manager) => {
+      const userRepoTransaction = manager.getRepository(UserEntity);
+      const refreshTokenRepoTransaction =
+        manager.getRepository(RefreshTokenEntity);
+      const userUpdated = await userRepoTransaction.save(user);
+      await refreshTokenRepoTransaction.update(
+        { user: { id: userUpdated.id } },
+        { isRevoked: true },
+      );
+    });
   }
   async createOAuthAccount(oAuthAccount: Partial<OAuthAccountEntity>) {
     await this.oAuthAccountRepo.save(oAuthAccount);

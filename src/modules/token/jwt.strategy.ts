@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { Payload } from '../model/payload.model';
+import { AuthUser } from './authuser.interface';
 import { Request } from 'express';
 function cookieExtractor(req: Request): string {
   return req?.cookies?.accessToken as string;
@@ -23,7 +23,7 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: Payload) {
-    return payload;
+  validate(authUser: AuthUser) {
+    return authUser;
   }
 }
