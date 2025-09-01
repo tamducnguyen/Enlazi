@@ -5,11 +5,11 @@ import { OAuth2Client } from 'google-auth-library';
 import { Provider } from './provider.enum';
 import { AuthRepository } from '../auth.repository';
 import { sendResponse } from 'src/modules/common/helper/response.helper';
-import { Role } from '../../role/roles.enum';
+import { Role } from '../../role/role.enum';
 import { cookieOptions, message } from 'src/modules/common/constants.common';
-import { RoleEntity } from '../../role/roles.entity';
+import { RoleEntity } from '../../role/role.entity';
 import { v4 } from 'uuid';
-import { ExchangeCodeDTO } from '../dto/users.exchangecode.dto';
+import { ExchangeCodeDTO } from '../dto/auth.exchangecode.dto';
 import { Response } from 'express';
 
 @Injectable()

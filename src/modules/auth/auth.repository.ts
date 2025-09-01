@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { UserEntity } from '../users/users.entity';
-import { Role } from '../role/roles.enum';
-import { RoleEntity } from '../role/roles.entity';
+import { UserEntity } from '../account/entity/user.entity';
+import { Role } from '../role/role.enum';
+import { RoleEntity } from '../role/role.entity';
 import { RefreshTokenEntity } from '../token/refresh-token.entity';
 import { OAuthAccountEntity } from './oauth/oauth.entity';
 import { Provider } from './oauth/provider.enum';

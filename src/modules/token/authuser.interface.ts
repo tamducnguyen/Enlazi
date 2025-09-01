@@ -1,4 +1,4 @@
-import { Role } from '../role/roles.enum';
+import { Role } from '../role/role.enum';
 
 export class AuthUser {
   constructor(roles: Role[], sub: string, email: string) {

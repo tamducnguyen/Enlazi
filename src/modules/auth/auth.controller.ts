@@ -21,17 +21,17 @@ import {
 } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
-import { SignUpDTO } from './dto/user.singup.dto';
-import { SignInDTO } from './dto/user.singin.dto';
-import { VerifyDTO } from './dto/user.verify.dto';
-import { RefreshDTO } from './dto/users.refresh.dto';
-import { SignOutDTO } from './dto/users.signout.dto';
-import { ForgotPasswordDTO } from './dto/users.forgotpassword.dto';
-import { VerifyForgotPasswordDTO } from './dto/users.verifyforgpass.dto';
-import { UserThrottlerGuard } from '../common/guard/user_throttler.guard';
+import { SignUpDTO } from './dto/auth.singup.dto';
+import { SignInDTO } from './dto/auth.singin.dto';
+import { VerifyDTO } from './dto/auth.verify.dto';
+import { RefreshDTO } from './dto/auth.refresh.dto';
+import { SignOutDTO } from './dto/auth.signout.dto';
+import { ForgotPasswordDTO } from './dto/auth.forgotpassword.dto';
+import { VerifyForgotPasswordDTO } from './dto/auth.verifyforgpass.dto';
+import { UserThrottlerGuard } from '../common/guard/throttler.guard';
 import { GoogleAuthService } from './oauth/google.service';
 import { RefreshTokenGuard } from '../token/refresh.jwt.guard';
-import { ExchangeCodeDTO } from './dto/users.exchangecode.dto';
+import { ExchangeCodeDTO } from './dto/auth.exchangecode.dto';
 import { CurrentUser } from '../token/currentuser.decorator';
 import { AuthUser } from '../token/authuser.interface';
 
