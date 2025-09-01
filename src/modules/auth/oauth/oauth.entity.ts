@@ -7,7 +7,7 @@ import {
   ManyToOne,
 } from 'typeorm';
 import { Provider } from './provider.enum';
-import { UserEntity } from 'src/modules/users/users.entity';
+import { UserEntity } from 'src/modules/account/entity/user.entity';
 @Entity({ name: 'oauth_account' })
 @Index(['provider', 'providerAccountId'], { unique: true })
 @Index(['user', 'provider'], { unique: true })

@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { SignUpDTO } from './dto/user.singup.dto';
+import { SignUpDTO } from './dto/auth.singup.dto';
 import { AuthRepository } from './auth.repository';
 import {
   cookieOptions,
@@ -19,20 +19,20 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { generateVerificationCode } from '../common/helper/generatecode.helper';
 import { HashHelper } from '../common/helper/hash.helper';
-import { SignInDTO } from './dto/user.singin.dto';
+import { SignInDTO } from './dto/auth.singin.dto';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '../role/roles.enum';
-import { VerifyDTO } from './dto/user.verify.dto';
+import { Role } from '../role/role.enum';
+import { VerifyDTO } from './dto/auth.verify.dto';
 import { ConfigService } from '@nestjs/config';
 import { AuthUser } from '../token/authuser.interface';
 import { v4 } from 'uuid';
-import { RefreshDTO } from './dto/users.refresh.dto';
-import { SignOutDTO } from './dto/users.signout.dto';
+import { RefreshDTO } from './dto/auth.refresh.dto';
+import { SignOutDTO } from './dto/auth.signout.dto';
 import { sendResponse } from '../common/helper/response.helper';
-import { ForgotPasswordDTO } from './dto/users.forgotpassword.dto';
-import { VerifyForgotPasswordDTO } from './dto/users.verifyforgpass.dto';
+import { ForgotPasswordDTO } from './dto/auth.forgotpassword.dto';
+import { VerifyForgotPasswordDTO } from './dto/auth.verifyforgpass.dto';
 import { Provider } from './oauth/provider.enum';
-import { UserEntity } from '../users/users.entity';
+import { UserEntity } from '../account/entity/user.entity';
 import { ttlCache } from '../common/constants.common';
 import { RefreshTokenEntity } from '../token/refresh-token.entity';
 @Injectable()
@@ -357,10 +357,11 @@ export class AuthService {
       sameSite: 'strict',
       maxAge: cookieOptions.maxAge.accessToken, // 1 hour
     });
+    const data = { accesstoken: accessToken };
     return sendResponse(
       HttpStatus.OK,
       message.user.refresh_token_successfully,
-      accessToken,
+      data,
     );
   }
   /**
