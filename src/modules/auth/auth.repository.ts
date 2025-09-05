@@ -50,9 +50,9 @@ export class AuthRepository {
         id: true,
         email: true,
         isActive: true,
-        roles: { name: true },
         hashedpassword: true,
       },
+      relations: { roles: true },
       where: { email: email },
     });
   }
@@ -62,9 +62,9 @@ export class AuthRepository {
         id: true,
         email: true,
         isActive: true,
-        roles: { name: true },
         hashedpassword: true,
       },
+      relations: { roles: true },
       where: { id: id },
     });
   }
@@ -103,6 +103,7 @@ export class AuthRepository {
   async findOAuthAccount(provider: Provider, providerAccountId: string) {
     return await this.oAuthAccountRepo.findOne({
       where: { provider: provider, providerAccountId: providerAccountId },
+      relations: { user: { roles: true } },
     });
   }
 }
