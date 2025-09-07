@@ -19,9 +19,7 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
   console.log(process.env.NODE_ENV);
-  if (process.env.NODE_ENV !== 'production') {
-    setupSwagger(app);
-  }
+  setupSwagger(app);
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
