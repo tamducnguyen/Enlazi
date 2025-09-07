@@ -8,6 +8,5 @@ export class ChangePasswordDTO {
   @IsStrongPassword()
   newPassword: string;
   @IsString()
-  @IsStrongPassword()
   confirmNewPassword: string;
 }

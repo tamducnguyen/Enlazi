@@ -3,11 +3,14 @@ import {
   Entity,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { RoleEntity } from '../../role/role.entity';
 import { OAuthAccountEntity } from '../../auth/oauth/oauth.entity';
+import { HobbyEntity } from './hobby.entity';
+import { CefrLevelEntity } from './cefrlevel.entity';
 
 @Entity('user')
 export class UserEntity {
@@ -28,4 +31,9 @@ export class UserEntity {
     nullable: true,
   })
   oauthAccounts: OAuthAccountEntity[];
+  @ManyToOne(() => CefrLevelEntity, { nullable: true })
+  cefrLevel: CefrLevelEntity;
+  @ManyToMany(() => HobbyEntity, { nullable: true })
+  @JoinTable({ name: 'user_hobby' })
+  hobbies: HobbyEntity[];
 }

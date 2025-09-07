@@ -29,6 +29,9 @@ export const message = {
       'The new password and its confirmation do not match',
     invalid_payload_token: 'Invalid authentication information',
     get_profile_successfully: 'Get user profile successfully',
+    get_hobbies_successfully: 'Get all hobbies successfully',
+    not_found_some_hobbies: 'Some of the requested hobbies could not be found',
+    update_hobbies_successfully: 'Update hobbies successfully',
   },
   auth: {
     ratelimit: {
