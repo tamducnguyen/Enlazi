@@ -7,8 +7,7 @@ import {
   Body,
   Post,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Response } from 'express';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -47,7 +46,6 @@ export class AuthController {
 
   @HttpCode(HttpStatus.CREATED)
   @Post('signup')
-  @SkipThrottle({ low: true })
   @ApiOperation({
     summary: 'Register a new user account',
     description: 'Send verify code via email',
@@ -62,7 +60,6 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('verify')
-  @SkipThrottle({ burst: true })
   @ApiOperation({
     summary: 'Verify a user account using the provided code via email',
   })
@@ -137,7 +134,6 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('forgotpassword')
-  @SkipThrottle({ low: true })
   @ApiOperation({
     summary: 'Initiate password reset process by sending a reset code',
   })
@@ -178,7 +174,6 @@ export class AuthController {
       'Google did not return id_token, Invalid Google Token, Email is not verified by Google',
   })
   @ApiInternalServerErrorResponse({ description: 'Code is invalid' })
-  @SkipThrottle({ burst: true })
   async exchangeCode(
     @Res({ passthrough: true }) response: Response,
     @Body() exchangeCode: ExchangeCodeDTO,
