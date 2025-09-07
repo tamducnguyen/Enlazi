@@ -16,7 +16,6 @@ export class OAuthAccountEntity {
   id: string;
   @ManyToOne(() => UserEntity, (u) => u.oauthAccounts, {
     onDelete: 'CASCADE',
-    eager: true,
   })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;

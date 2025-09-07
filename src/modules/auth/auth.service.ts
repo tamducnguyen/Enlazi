@@ -213,7 +213,7 @@ export class AuthService {
    *
    * @throws BadRequestException - If:
    *    - The user account does not exist (`message.user.not_exist`), OR
-   *    - The user account has not been verified (`message.user.verify_require`), OR
+   *    - The user account has not been actived (`message.user.not_active`), OR
    *    - The provided password is incorrect (`message.user.wrong_password`).
    */
   async signIn(signInDTO: SignInDTO, response: Response) {
@@ -232,7 +232,7 @@ export class AuthService {
       throw new Error('Conflict database');
     }
     if (!userFounded.isActive) {
-      throw new BadRequestException(message.user.verify_require);
+      throw new BadRequestException(message.user.not_active);
     }
     if (!userFounded.hashedpassword) {
       throw new Error('dont have password');
@@ -258,7 +258,6 @@ export class AuthService {
     };
     const expires_at = new Date(exp * 1000);
     const sessionId = v4();
-    //userGuard: API key???
     const refreshTokenHashed = await HashHelper.hash(refreshToken);
     const refreshTokenEntity: Partial<RefreshTokenEntity> = {
       tokenHash: refreshTokenHashed,

@@ -6,7 +6,7 @@ export const message = {
     not_exist: 'Verification information is invalid. Please try again.',
     already_verified: 'Your account is already verified.',
     wrong_verified_code: 'The verification code is incorrect.',
-    verify_require: 'Your account is not active. Please verify first.',
+    not_active: 'Your account is not active.',
     invalid_email_password: 'Invalid email or password. Please try again.',
     role_not_exist: 'Invalid role information.',
     sign_out_successfully: 'Signed out successfully.',
@@ -29,6 +29,9 @@ export const message = {
       'The new password and its confirmation do not match',
     invalid_payload_token: 'Invalid authentication information',
     get_profile_successfully: 'Get user profile successfully',
+    get_hobbies_successfully: 'Get all hobbies successfully',
+    not_found_some_hobbies: 'Some of the requested hobbies could not be found',
+    update_hobbies_successfully: 'Update hobbies successfully',
   },
   auth: {
     ratelimit: {
