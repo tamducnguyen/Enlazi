@@ -14,7 +14,7 @@ async function bootstrap() {
   );
   app.use(cookieParser());
   app.enableCors({
-    origin: process.env.FRONTEND_DOMAIN, // domain frontend
+    origin: '*', // domain frontend
     credentials: true,
   });
   app.setGlobalPrefix('api');
