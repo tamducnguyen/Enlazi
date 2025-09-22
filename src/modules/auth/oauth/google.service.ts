@@ -11,6 +11,7 @@ import { RoleEntity } from '../../role/role.entity';
 import { v4 } from 'uuid';
 import { ExchangeCodeDTO } from '../dto/auth.exchangecode.dto';
 import { Response } from 'express';
+import { sendCookie } from 'src/modules/common/helper/cookie.helper';
 
 @Injectable()
 export class GoogleAuthService {
@@ -47,24 +48,27 @@ export class GoogleAuthService {
       refreshtoken: refreshToken,
       sessionid: sessionId,
     };
-    response.cookie(cookieOptions.name.accessToken, accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.accessToken, // 1 hour
-    });
-    response.cookie(cookieOptions.name.refreshToken, refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.refreshToken, // 1 year
-    });
-    response.cookie(cookieOptions.name.sessionId, sessionId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.sessionId, // 1 year
-    });
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.accessToken,
+      accessToken,
+      cookieOptions.maxAge.accessToken,
+    );
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.refreshToken,
+      refreshToken,
+      cookieOptions.maxAge.refreshToken,
+    );
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.sessionId,
+      sessionId,
+      cookieOptions.maxAge.sessionId,
+    );
     return sendResponse(
       HttpStatus.OK,
       message.user.sign_in_with_google_successfully,
