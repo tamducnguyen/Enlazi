@@ -35,6 +35,7 @@ import { Provider } from './oauth/provider.enum';
 import { UserEntity } from '../account/entity/user.entity';
 import { ttlCache } from '../common/constants.common';
 import { RefreshTokenEntity } from '../token/refresh-token.entity';
+import { sendCookie } from '../common/helper/cookie.helper';
 @Injectable()
 export class AuthService {
   constructor(
@@ -271,24 +272,27 @@ export class AuthService {
       refreshtoken: refreshToken,
       sessionid: sessionId,
     };
-    response.cookie(cookieOptions.name.accessToken, accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.accessToken, // 1 hour
-    });
-    response.cookie(cookieOptions.name.refreshToken, refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.refreshToken, // 1 year
-    });
-    response.cookie(cookieOptions.name.sessionId, sessionId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.sessionId, // 1 year
-    });
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.accessToken,
+      accessToken,
+      cookieOptions.maxAge.accessToken,
+    );
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.refreshToken,
+      refreshToken,
+      cookieOptions.maxAge.refreshToken,
+    );
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.sessionId,
+      sessionId,
+      cookieOptions.maxAge.sessionId,
+    );
     return sendResponse(HttpStatus.OK, message.user.sign_in_successfully, data);
   }
   /**
@@ -350,12 +354,13 @@ export class AuthService {
       roles: userFound.roles.map((r) => r.name),
     };
     const accessToken = await this.jwtService.signAsync(userInfo);
-    response.cookie(cookieOptions.name.accessToken, accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: cookieOptions.maxAge.accessToken, // 1 hour
-    });
+    sendCookie(
+      response,
+      this.configService,
+      cookieOptions.name.accessToken,
+      accessToken,
+      cookieOptions.maxAge.accessToken,
+    );
     const data = { accesstoken: accessToken };
     return sendResponse(
       HttpStatus.OK,
