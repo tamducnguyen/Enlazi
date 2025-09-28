@@ -1,28 +1,14 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createTransport, Transporter } from 'nodemailer';
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
+import * as sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class MailService {
-  private readonly transporter: Transporter;
-  constructor(
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private readonly configService: ConfigService,
-  ) {
-    this.transporter = createTransport({
-      service: 'gmail',
-      auth: {
-        user: configService.get<string>('GMAILER'),
-        pass: configService.get<string>('GMAILER_APP_PASSWORD'),
-      },
-    });
-
-    console.log(__dirname);
+  constructor(private readonly configService: ConfigService) {
+    sgMail.setApiKey(this.configService.getOrThrow<string>('SENDGRID_API_KEY'));
     Handlebars.registerPartial(
       'header',
       fs.readFileSync(
@@ -45,38 +31,50 @@ export class MailService {
     return template(context);
   }
 
-  async sendEmail(
+  private async sendEmail(
     toEmail: string,
     subject: string,
     html: string,
-  ): Promise<void> {
-    const message = {
-      from: '"Enlazi" <tam9898980@gmail.com>',
+  ): Promise<boolean> {
+    const fromEmail = this.configService.getOrThrow<string>(
+      'SENDGRID_FROM_EMAIL',
+    );
+    const msg = {
       to: toEmail,
-      subject: subject,
-      html: html,
+      from: { email: fromEmail, name: 'Enlazi' },
+      subject,
+      html,
     };
 
-    await this.transporter.sendMail(message);
+    try {
+      await sgMail.send(msg);
+      return true;
+    } catch (error) {
+      console.error('SendGrid error:', error);
+      return false;
+    }
   }
 
   async sendWelcomeAndVerifyCode(
     toEmail: string,
     verifyCode: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const htmlWelcome = this.compileTemplate('content/welcome.hbs', {
       name: toEmail,
       code: verifyCode,
     });
-    const subject = 'Welcome to Enlazi!';
-    await this.sendEmail(toEmail, subject, htmlWelcome);
+    const subject = 'Xác minh tài khoản';
+    return await this.sendEmail(toEmail, subject, htmlWelcome);
   }
-  async sendForgotPassword(toEmail: string, verifyCode: string): Promise<void> {
+  async sendForgotPassword(
+    toEmail: string,
+    verifyCode: string,
+  ): Promise<boolean> {
     const htmlWelcome = this.compileTemplate('content/forgotpassword.hbs', {
       name: toEmail,
       code: verifyCode,
     });
-    const subject = 'Password Reset Request';
-    await this.sendEmail(toEmail, subject, htmlWelcome);
+    const subject = 'Đặt lại mật khẩu';
+    return await this.sendEmail(toEmail, subject, htmlWelcome);
   }
 }
