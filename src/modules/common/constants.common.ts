@@ -28,6 +28,7 @@ export const message = {
     get_hobbies_successfully: 'Lấy danh sách sở thích thành công.',
     not_found_some_hobbies: 'Không tìm thấy một số sở thích được yêu cầu.',
     update_hobbies_successfully: 'Cập nhật sở thích thành công.',
+    update_username_successfully: 'Cập nhật tên người dùng thành công',
   },
   auth: {
     ratelimit: {

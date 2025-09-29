@@ -7,8 +7,8 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { RoleEntity } from '../../role/role.entity';
-import { OAuthAccountEntity } from '../../auth/oauth/oauth.entity';
+import { RoleEntity } from './role.entity';
+import { OAuthAccountEntity } from './oauth.entity';
 import { HobbyEntity } from './hobby.entity';
 import { CefrLevelEntity } from './cefrlevel.entity';
 

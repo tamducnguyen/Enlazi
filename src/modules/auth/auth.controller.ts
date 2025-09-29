@@ -28,7 +28,7 @@ import { SignOutDTO } from './dto/auth.signout.dto';
 import { ForgotPasswordDTO } from './dto/auth.forgotpassword.dto';
 import { VerifyForgotPasswordDTO } from './dto/auth.verifyforgpass.dto';
 import { UserThrottlerGuard } from '../common/guard/throttler.guard';
-import { GoogleAuthService } from './oauth/google.service';
+import { GoogleAuthService } from './google.service';
 import { RefreshTokenGuard } from '../token/refresh.jwt.guard';
 import { ExchangeCodeDTO } from './dto/auth.exchangecode.dto';
 import { CurrentUser } from '../token/currentuser.decorator';

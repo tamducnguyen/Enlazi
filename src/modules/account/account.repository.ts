@@ -1,9 +1,9 @@
 import { DataSource, In, Repository } from 'typeorm';
-import { UserEntity } from './entity/user.entity';
+import { UserEntity } from '../entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OAuthAccountEntity } from '../auth/oauth/oauth.entity';
-import { RefreshTokenEntity } from '../token/refresh-token.entity';
-import { HobbyEntity } from './entity/hobby.entity';
+import { OAuthAccountEntity } from '../entities/oauth.entity';
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
+import { HobbyEntity } from '../entities/hobby.entity';
 
 export class AccountRepository {
   constructor(

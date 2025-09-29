@@ -21,7 +21,7 @@ import { generateVerificationCode } from '../common/helper/generatecode.helper';
 import { HashHelper } from '../common/helper/hash.helper';
 import { SignInDTO } from './dto/auth.singin.dto';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '../role/role.enum';
+import { Role } from '../enum/role.enum';
 import { VerifyDTO } from './dto/auth.verify.dto';
 import { ConfigService } from '@nestjs/config';
 import { AuthUser } from '../token/authuser.interface';
@@ -31,10 +31,10 @@ import { SignOutDTO } from './dto/auth.signout.dto';
 import { sendResponse } from '../common/helper/response.helper';
 import { ForgotPasswordDTO } from './dto/auth.forgotpassword.dto';
 import { VerifyForgotPasswordDTO } from './dto/auth.verifyforgpass.dto';
-import { Provider } from './oauth/provider.enum';
-import { UserEntity } from '../account/entity/user.entity';
+import { Provider } from '../enum/provider.enum';
+import { UserEntity } from '../entities/user.entity';
 import { ttlCache } from '../common/constants.common';
-import { RefreshTokenEntity } from '../token/refresh-token.entity';
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { sendCookie } from '../common/helper/cookie.helper';
 @Injectable()
 export class AuthService {

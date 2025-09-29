@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { UserEntity } from '../account/entity/user.entity';
-import { Role } from '../role/role.enum';
-import { RoleEntity } from '../role/role.entity';
-import { RefreshTokenEntity } from '../token/refresh-token.entity';
-import { OAuthAccountEntity } from './oauth/oauth.entity';
-import { Provider } from './oauth/provider.enum';
+import { UserEntity } from '../entities/user.entity';
+import { Role } from '../enum/role.enum';
+import { RoleEntity } from '../entities/role.entity';
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
+import { OAuthAccountEntity } from '../entities/oauth.entity';
+import { Provider } from '../enum/provider.enum';
 @Injectable()
 export class AuthRepository {
   constructor(
