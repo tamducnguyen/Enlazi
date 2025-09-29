@@ -14,7 +14,11 @@ import { throttlerConfig } from './modules/config/throttler.config';
   imports: [
     AccountModule,
     AuthModule,
-    ThrottlerModule.forRoot(throttlerConfig),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: throttlerConfig,
+    }),
     CacheModule.register({
       isGlobal: true,
     }),
