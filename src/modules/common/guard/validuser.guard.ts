@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request } from 'express';
-import { UserEntity } from 'src/modules/account/entity/user.entity';
+import { UserEntity } from 'src/modules/entities/user.entity';
 import { AuthUser } from 'src/modules/token/authuser.interface';
 import { Repository } from 'typeorm';
 import { message } from '../constants.common';

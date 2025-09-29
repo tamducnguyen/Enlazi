@@ -5,7 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { UserEntity } from './entity/user.entity';
+import { UserEntity } from '../entities/user.entity';
 import { ChangePasswordDTO } from './dto/changepassword.dto';
 import { Response } from 'express';
 import { AccountRepository } from './account.repository';
@@ -14,7 +14,7 @@ import { AuthUser } from '../token/authuser.interface';
 import { sendResponse } from '../common/helper/response.helper';
 import { cookieOptions, message } from '../common/constants.common';
 import { PostHobbiesDTO } from './dto/posthobbies.dto';
-import { HobbyEntity } from './entity/hobby.entity';
+import { HobbyEntity } from '../entities/hobby.entity';
 import { UpdateUserNameDTO } from './dto/updateusername.dto';
 
 @Injectable()
@@ -197,6 +197,9 @@ export class AccountService {
     //update user name
     const { username } = updateUserNameDTO;
     await this.accountRepo.updateUserNameByID(sub, username);
-    return sendResponse(HttpStatus.OK, 'Update user name successfully');
+    return sendResponse(
+      HttpStatus.OK,
+      message.user.update_username_successfully,
+    );
   }
 }

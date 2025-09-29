@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
-import { CefrLevelEnum } from '../interface/cefr.enum';
+import { CefrLevelEnum } from '../enum/cefr.enum';
 
 @Entity('cefr_level')
 export class CefrLevelEntity {

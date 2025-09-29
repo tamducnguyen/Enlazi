@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn, ManyToMany } from 'typeorm';
-import { Role } from './role.enum';
-import { UserEntity } from 'src/modules/account/entity/user.entity';
+import { Role } from '../enum/role.enum';
+import { UserEntity } from 'src/modules/entities/user.entity';
 
 @Entity('role')
 export class RoleEntity {

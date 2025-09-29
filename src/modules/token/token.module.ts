@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtAccessStrategy } from './jwt.strategy';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { RefreshTokenEntity } from './refresh-token.entity';
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
